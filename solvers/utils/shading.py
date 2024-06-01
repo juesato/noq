@@ -9,17 +9,22 @@ class RectangularGridShadingSolver():
     
     Can be either "main" or "auxiliary".
     '''
-    def __init__(self, rows, cols, grid = None, shading_symbols = None):
+    def __init__(self, rows, cols, grid = None, shading_symbols = None, filter_fn = None):
         '''
         rows = # rows of the puzzle
         cols = # columns of the puzzle
         grid = None if this solver is "main"; the grid to constrain, otherwise
         shading_symbols = a list of symbols which represent shaded cells
         '''
+        self._nonrect = filter_fn is not None
+        if filter_fn is None:
+            filter_fn = lambda r, c: True
         self.__rows = rows
         self.__cols = cols
-        self.__grid = grid or RectangularGrid(rows, cols, BoolVar)
+        self.__grid = grid or CustomRectangularGrid(rows, cols, BoolVar, filter_fn = filter_fn)
         self.__shading_symbols = shading_symbols.copy() if shading_symbols else [True]
+        self._filter_fn = filter_fn
+
     @property
     def rows(self):
         return self.__rows
@@ -43,15 +48,19 @@ class RectangularGridShadingSolver():
             for c in range(self.cols - len(pattern[0]) + 1):
                 cond = True # condition that subsquare with upper-left corner (r,c)
                             # matches the pattern; this needs to be False
+                skip = False
                 for dr in range(len(pattern)):
                     for dc in range(len(pattern[0])):
                         if pattern[dr][dc] == '*':
                             pass
+                        if not self._filter_fn(r+dr, c+dc):
+                            skip = True  # this subsquare is not part of the puzzle
                         elif pattern[dr][dc]:
                             cond &= var_in(self.grid[r+dr][c+dc], self.__shading_symbols)
                         else:
                             cond &= ~var_in(self.grid[r+dr][c+dc], self.__shading_symbols)
-                require(~cond)
+                if not skip:
+                    require(~cond)
 
     def no_white_2x2(self):
         '''
@@ -98,6 +107,8 @@ class RectangularGridShadingSolver():
             connectivity_grid[known_root[0]][known_root[1]].prove_if(True)
             for r in range(self.rows):
                 for c in range(self.cols):
+                    if not self._filter_fn(r, c):
+                        continue
                     for (y, x) in connectivity_grid.get_neighbors(r, c):
                         connectivity_grid[r][c].prove_if(
                             ~var_in(self.grid[y][x], self.__shading_symbols) &
@@ -107,6 +118,8 @@ class RectangularGridShadingSolver():
             chosen = RectangularGrid(self.rows, self.cols, BoolVar)
             for r in range(self.rows):
                 for c in range(self.cols):
+                    if not self._filter_fn(r, c):
+                        continue
                     for (y, x) in connectivity_grid.get_neighbors(r, c):
                         connectivity_grid[r][c].prove_if(chosen[r][c] |
                             (~var_in(self.grid[y][x], self.__shading_symbols) &
@@ -123,6 +136,8 @@ class RectangularGridShadingSolver():
             connectivity_grid[known_root[0]][known_root[1]].prove_if(True)
             for r in range(self.rows):
                 for c in range(self.cols):
+                    if not self._filter_fn(r, c):
+                        continue
                     for (y, x) in connectivity_grid.get_neighbors(r, c):
                         connectivity_grid[r][c].prove_if(
                             var_in(self.grid[y][x], self.__shading_symbols) &
@@ -132,6 +147,8 @@ class RectangularGridShadingSolver():
             chosen = RectangularGrid(self.rows, self.cols, BoolVar)
             for r in range(self.rows):
                 for c in range(self.cols):
+                    if not self._filter_fn(r, c):
+                        continue
                     for (y, x) in connectivity_grid.get_neighbors(r, c):
                         connectivity_grid[r][c].prove_if(chosen[r][c] |
                             (var_in(self.grid[y][x], self.__shading_symbols) &
@@ -143,6 +160,8 @@ class RectangularGridShadingSolver():
         '''
         Require that every black cell is connected to an edge.
         '''
+        if self._nonrect:
+            raise NotImplementedError('This method is not implemented for non-rectangular grids.')
         connectivity_grid = RectangularGrid(self.rows, self.cols, Atom)
         for r in range(self.rows):
             for c in range(self.cols):

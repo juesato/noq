@@ -1,4 +1,5 @@
 from enum import Enum
+from ..claspy import IntVar, BoolVar, require
 
 Type = Enum('Type', 'RECT HEX')
 
@@ -92,3 +93,74 @@ class RectangularGrid:
         for r in range(self.rows):
             for c in range(self.cols):
                 yield (r,c)
+
+
+def fixed_val():
+    v = BoolVar()
+    require(v)
+    return v
+
+
+class CustomRectangularGrid:
+    '''
+    Represents a puzzle as a list of lists, where each internal list
+    represents a row of the puzzle.
+    
+    Each cell is of the same type as all the others.
+    '''
+    def __init__(self, rows, cols, seed_function, filter_fn):
+        '''
+        rows = # rows
+        cols = # columns
+        seed_function = a function which, when called, yields a value
+        of the appropriate type for this puzzle
+        '''
+        self.__rows = rows
+        self.__cols = cols
+        self.__type = Type.RECT
+        try:
+            self.__grid = [[seed_function() if filter_fn(r, c) else fixed_val() for c in range(cols)] for r in range(rows)]
+        except:
+            self.__grid = [[seed_function(r,c) if filter_fn(r, c) else fixed_val() for c in range(cols)] for r in range(rows)]
+    @property
+    def rows(self):
+        return self.__rows
+    @property
+    def cols(self):
+        return self.__cols
+    @property
+    def type(self):
+        return self.__type
+    def __getitem__(self, key):
+        if type(key) == tuple:
+            return self.__grid[key[0]][key[1]]
+        else:
+            return self.__grid[key]
+    def __len__(self):
+        return self.__rows
+    def is_valid_coord(self, r, c):
+        '''
+        Returns True iff (r, c) is a valid coordinate for this grid.
+        '''
+        if not filter_fn(r, c):
+            return False
+        return is_valid_coord(self.rows, self.cols, r, c)
+    def get_neighbors(self, r, c):
+        '''
+        Returns the 90-degree neighbors of (r, c) in this grid.
+        '''
+        neighbors = get_neighbors(self.rows, self.cols, r, c)
+        return [(r, c) for (r, c) in neighbors if filter_fn(r, c)]
+
+    def get_surroundings(self, r, c):
+        '''
+        Returns the surroundings (includes diagonals) of (r, c) in this grid.
+        '''
+        cells = get_surroundings(self.rows, self.cols, r, c)
+        return [(r, c) for (r, c) in cells if filter_fn(r, c)]
+
+    def iter_coords(self):
+        for r in range(self.rows):
+            for c in range(self.cols):
+                if filter_fn(r, c):
+                    yield (r,c)

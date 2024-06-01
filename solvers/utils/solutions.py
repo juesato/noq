@@ -1,5 +1,7 @@
 from ..claspy import *
 from datetime import datetime
+from ..claspy import solve as claspy_solve
+
 
 MAX_SOLUTIONS_TO_FIND = 10
 

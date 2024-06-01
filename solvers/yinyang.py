@@ -1,14 +1,15 @@
 from .claspy import *
 from . import utils
 from .utils.solutions import *
+from .utils.encoding import Encoding
 
 def encode(string):
     return utils.encode(string, clue_encoder = lambda s: s)
     
-def solve(E):
+def solve(E, filter_fn = None):
     set_max_val(2)
 
-    s = utils.shading.RectangularGridShadingSolver(E.R, E.C)
+    s = utils.shading.RectangularGridShadingSolver(E.R, E.C, filter_fn=filter_fn)
 
     # Optimize solving by providing known roots for white and black parts
     white_root, black_root = None, None
@@ -35,3 +36,31 @@ def solve(E):
    
 def decode(solutions):
     return utils.decode(solutions)
+
+def parse(board_str):
+    board = board_str.strip().split('\n')
+    num_rows = len(board)
+    num_cols = len(board[0])
+    bw_mapping = {
+        '1': 'b',
+        '0': 'w',
+    }
+    clues = {}
+    for r in range(num_rows):
+        for c in range(num_cols):
+            if board[r][c] in bw_mapping:
+                clues[(r, c)] = bw_mapping[board[r][c]]
+    return Encoding(rows=num_rows, cols=num_cols, clue_cells=clues)
+
+def make_filter_fn(solution_str):
+    board = solution_str.strip().split('\n')
+    num_rows = len(board)
+    num_cols = len(board[0])
+    clue_chars = ['0', '1']
+    clue_cells = []
+    for r in range(num_rows):
+        for c in range(num_cols):
+            if board[r][c] in clue_chars:
+                clue_cells.append((r, c))
+    clue_cells = set(clue_cells)
+    return lambda r, c: (r, c) in clue_cells
